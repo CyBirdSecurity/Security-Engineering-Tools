@@ -1,0 +1,42 @@
+name: Security-Dependency-Auto-Patch
+
+on: 
+  # you can also alter this to run after a CI action or another workflow passes successfully
+  pull_request:
+    # specify your default branch that you want this action to run on. 
+    branches: [ main ]
+
+permissions: 
+  pull-requests: write
+  repository-projects: read
+
+jobs:
+  dependency-auto-patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write 
+      pull-requests: write
+      repository-projects: read
+    #this specifies that only dependabot PR's are considered, you can also remove this logic, or specify other user's to include. 
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Get Metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with: 
+          github-token: ${{ secrets.SECURITY_DEPENDENCY_AUTO_PATCH_PAT }}
+          alert-lookup: true
+          compat-lookup: true
+      - name: Merge based on Compatibility Score 
+        id: compat_merge
+        # you can modify this compatiblity score based on your risk threshold. 
+        if: ${{ steps.metadata.outputs.compatibility-score >= 80 }}
+        # this will need to be modified if your repo doens't allow for merging. You can also adjust for rebasing using the below commented out line instead
+        # run: gh pr merge --auto --rebase "$PR_URL"
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{github.eventspull_requests.html_url}}
+          GH_TOKEN: ${{secrets.SECURITY_DEPENDENCY_AUTO_PATCH_PAT}}
+
+          
+    
