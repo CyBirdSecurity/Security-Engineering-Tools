@@ -37,10 +37,19 @@ jobs:
         env:
           PR_URL: ${{github.eventspull_requests.html_url}}
           GH_TOKEN: ${{secrets.SECURITY_DEPENDENCY_AUTO_PATCH_PAT}}
+
+      - name: Autoapprove if automerge is set
+        id: autoapprove
+        uses: hmarr/auto-approve-action@v4
+        if: always() && (steps.compat_merge.outcome == 'success')
+        with:
+          review-message: "Auto Approved and Merged Dependency Auto Patch"
+          github-token: ${{ secrets.SECURITY_DEPENDENCY_AUTO_PATCH_PAT}}
+          
       #This is optional, it just adds a tag to the PR for easy identification of metric tracking. 
       - name: Add lable tagging
         id: label_autopatch
-        if: always() && (steps.automerge.outcome == 'success')
+        if: always() && (steps.autoapprove.outcome == 'success')
         run: gh pr edit "$PR_URL" --add-label "Dependency-Auto-Merge"
         env:
           PR_URL: ${{github.event.pull_requests.html_url}}
