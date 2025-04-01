@@ -22,7 +22,8 @@ jobs:
     steps:
       - name: Get Metadata
         id: metadata
-        uses: dependabot/fetch-metadata@v2
+        #commit pinned metadata action, you can update the version if you want as they become available, but this minimizes risk of supply chain attacks
+        uses: dependabot/fetch-metadata@d7267f607e9d3fb96fc2fbe83e0af444713e90b7
         with: 
           github-token: ${{ secrets.SECURITY_DEPENDENCY_AUTO_PATCH_PAT }}
           alert-lookup: true
@@ -40,7 +41,7 @@ jobs:
 
       - name: Autoapprove if automerge is set
         id: autoapprove
-        uses: hmarr/auto-approve-action@v4
+        uses: hmarr/auto-approve-action@f0939ea97e9205ef24d872e76833fa908a770363
         if: always() && (steps.compat_merge.outcome == 'success')
         with:
           review-message: "Auto Approved and Merged Dependency Auto Patch"
