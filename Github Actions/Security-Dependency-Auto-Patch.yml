@@ -1,0 +1,59 @@
+name: Security-Dependency-Auto-Patch
+
+on: 
+  # you can also alter this to run after a CI action or another workflow passes successfully
+  pull_request:
+    # specify your default branch that you want this action to run on. 
+    branches: [ main ]
+
+permissions: 
+  pull-requests: write
+  repository-projects: read
+
+jobs:
+  dependency-auto-patch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write 
+      pull-requests: write
+      repository-projects: read
+    #this specifies that only dependabot PR's are considered, you can also remove this logic, or specify other user's to include. 
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Get Metadata
+        id: metadata
+        #commit pinned metadata action, you can update the version if you want as they become available, but this minimizes risk of supply chain attacks
+        uses: dependabot/fetch-metadata@d7267f607e9d3fb96fc2fbe83e0af444713e90b7
+        with: 
+          github-token: ${{ secrets.SECURITY_DEPENDENCY_AUTO_PATCH_PAT }}
+          alert-lookup: true
+          compat-lookup: true
+      - name: Merge based on Compatibility Score 
+        id: compat_merge
+        # you can modify this compatiblity score based on your risk threshold. 
+        if: ${{ steps.metadata.outputs.compatibility-score >= 80 }}
+        # this will need to be modified if your repo doens't allow for merging. You can also adjust for rebasing using the below commented out line instead
+        # run: gh pr merge --auto --rebase "$PR_URL"
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{github.eventspull_requests.html_url}}
+          GH_TOKEN: ${{secrets.SECURITY_DEPENDENCY_AUTO_PATCH_PAT}}
+
+      - name: Autoapprove if automerge is set
+        id: autoapprove
+        uses: hmarr/auto-approve-action@f0939ea97e9205ef24d872e76833fa908a770363
+        if: always() && (steps.compat_merge.outcome == 'success')
+        with:
+          review-message: "Auto Approved and Merged Dependency Auto Patch"
+          github-token: ${{ secrets.SECURITY_DEPENDENCY_AUTO_PATCH_PAT}}
+          
+      #This is optional, it just adds a tag to the PR for easy identification of metric tracking. 
+      - name: Add lable tagging
+        id: label_autopatch
+        if: always() && (steps.autoapprove.outcome == 'success')
+        run: gh pr edit "$PR_URL" --add-label "Dependency-Auto-Merge"
+        env:
+          PR_URL: ${{github.event.pull_requests.html_url}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+    
