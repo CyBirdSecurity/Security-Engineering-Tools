@@ -8,3 +8,6 @@ The label will need to match the workflow exactly, the default is "Dependency-Au
 ## Setting up auto-merge for your repo
 You will need to go into your repo settings and ensure that Allow auto-merge is enabled.
 <img width="813" alt="Screenshot 2025-01-22 at 8 51 53 AM" src="https://github.com/user-attachments/assets/07cde804-72fb-4a39-95fd-b32b49bfbbac" />
+
+## Set up a service account. 
+You'll need to create a service account that will be doing the approving for you. This service account will need to have read & write access to the repository as well as their PAT stored as a github action secret in the repo. The default name is "SECURITY_DEPENDENCY_AUTO_PATCH_PAT"
