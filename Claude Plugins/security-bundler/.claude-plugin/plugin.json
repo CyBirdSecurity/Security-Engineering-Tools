@@ -1,6 +1,6 @@
 {
-  "name": "dependency-vulnerability-remediation",
-  "displayName": "Dependency Vulnerability Remediation",
+  "name": "security-bundler",
+  "displayName": "Security Bundler",
   "description": "Pulls open GitHub Dependabot alerts via the GitHub CLI, classifies available fixes by upgrade risk (patch/minor/major) and severity, bulk-upgrades low-risk dependencies in grouped PRs, opens flagged isolated PRs for critical/high severity issues that require risky upgrades, and produces a triage report for everything left over.",
   "version": "1.0.0",
   "author": {

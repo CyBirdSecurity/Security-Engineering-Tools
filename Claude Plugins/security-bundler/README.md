@@ -1,4 +1,4 @@
-# Dependency Vulnerability Remediation (Claude Code plugin)
+# Security Bundler (Claude Code plugin)
 
 A Claude Code plugin that triages a repo's open GitHub Dependabot alerts and
 does the high-leverage part of the cleanup for you: bundling low-risk
@@ -39,7 +39,7 @@ well-documented PRs itself. Nothing here auto-merges anything.
 From inside Claude Code, add this plugin directory and enable it, e.g.:
 
 ```
-claude --plugin-dir "Claude Plugins/dependency-vulnerability-remediation"
+claude --plugin-dir "Claude Plugins/security-bundler"
 ```
 
 or install it via your organization's plugin marketplace if this repo (or a
@@ -52,13 +52,17 @@ your own words ("triage and remediate our Dependabot alerts") or invoke the
 skill directly:
 
 ```
-/dependency-vulnerability-remediation:remediate
+/security-bundler:security-bundler
 ```
+
+(Plugin skills are always namespaced as `/plugin-name:skill-name` to avoid
+collisions with other installed plugins — this is the closest Claude Code
+gets to a flat `/security-bundler` command.)
 
 The skill will fetch alerts, classify them, run your test suite against
 each proposed upgrade, open PRs, and produce a triage report — see
-`skills/remediate/SKILL.md` for the exact step-by-step workflow, and
-`skills/remediate/templates/` for the PR/report templates it fills in.
+`skills/security-bundler/SKILL.md` for the exact step-by-step workflow, and
+`skills/security-bundler/templates/` for the PR/report templates it fills in.
 
 ## What it will never do on its own
 
