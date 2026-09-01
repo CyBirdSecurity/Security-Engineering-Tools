@@ -1,9 +1,9 @@
 ---
-name: security-bundler
-description: Use when asked to remediate, triage, patch, or bulk-upgrade dependency vulnerabilities / Dependabot alerts for a GitHub repo, or when invoked as /security-bundler:security-bundler. Pulls open Dependabot alerts via the GitHub CLI, classifies fixes by upgrade risk and severity, opens grouped bulk PRs for low-risk upgrades and flagged isolated PRs for critical/high severity issues needing risky upgrades, and writes a triage report for everything else.
+name: dependency-patcher
+description: Use when asked to remediate, triage, patch, or bulk-upgrade dependency vulnerabilities / Dependabot alerts for a GitHub repo, or when invoked as /security-bundler:dependency-patcher. Pulls open Dependabot alerts via the GitHub CLI, classifies fixes by upgrade risk and severity, opens grouped bulk PRs for low-risk upgrades and flagged isolated PRs for critical/high severity issues needing risky upgrades, and writes a triage report for everything else.
 ---
 
-# Security Bundler
+# Dependency Patcher
 
 You are running a security remediation pass against the current repository's
 open GitHub Dependabot alerts. The goal is **leverage**: close as many
@@ -15,11 +15,11 @@ This skill has two helper scripts (deterministic, no LLM guessing on version
 math) and three PR/report templates in this skill's own directory:
 
 ```
-${CLAUDE_PLUGIN_ROOT}/skills/security-bundler/scripts/fetch_alerts.py
-${CLAUDE_PLUGIN_ROOT}/skills/security-bundler/scripts/classify_risk.py
-${CLAUDE_PLUGIN_ROOT}/skills/security-bundler/templates/pr_bulk_template.md
-${CLAUDE_PLUGIN_ROOT}/skills/security-bundler/templates/pr_isolated_template.md
-${CLAUDE_PLUGIN_ROOT}/skills/security-bundler/templates/triage_report_template.md
+${CLAUDE_PLUGIN_ROOT}/skills/dependency-patcher/scripts/fetch_alerts.py
+${CLAUDE_PLUGIN_ROOT}/skills/dependency-patcher/scripts/classify_risk.py
+${CLAUDE_PLUGIN_ROOT}/skills/dependency-patcher/templates/pr_bulk_template.md
+${CLAUDE_PLUGIN_ROOT}/skills/dependency-patcher/templates/pr_isolated_template.md
+${CLAUDE_PLUGIN_ROOT}/skills/dependency-patcher/templates/triage_report_template.md
 ```
 
 Use the scripts for fetching/classifying — do not hand-compute semver diffs
@@ -52,7 +52,7 @@ structure.
 ## Step 1 — Fetch open alerts
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/security-bundler/scripts/fetch_alerts.py" --out alerts.json
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/dependency-patcher/scripts/fetch_alerts.py" --out alerts.json
 ```
 
 This writes a normalized JSON list (severity, GHSA/CVE id, package,
@@ -104,7 +104,7 @@ actually present, or the lockfile format is unfamiliar), just omit it —
 ## Step 3 — Classify and group
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/skills/security-bundler/scripts/classify_risk.py" \
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/dependency-patcher/scripts/classify_risk.py" \
   --alerts alerts.json \
   --installed-versions installed_versions.json \
   --out groups.json \

@@ -2,7 +2,7 @@
 
 **Repo:** [owner/repo]
 **Generated:** [ISO date/time]
-**Run by:** security-bundler skill
+**Run by:** security-bundler plugin's dependency-patcher skill
 
 ## Summary
 
@@ -44,4 +44,4 @@ These need a human to decide whether the breaking upgrade is worth scheduling as
 
 ## Next run
 
-Re-run `/security-bundler:security-bundler` after these PRs merge to pick up whatever's left, or on a recurring cadence (weekly/monthly) to keep the deferred/no-fix-available lists current.
+Re-run `/security-bundler:dependency-patcher` after these PRs merge to pick up whatever's left, or on a recurring cadence (weekly/monthly) to keep the deferred/no-fix-available lists current.

@@ -52,17 +52,18 @@ your own words ("triage and remediate our Dependabot alerts") or invoke the
 skill directly:
 
 ```
-/security-bundler:security-bundler
+/security-bundler:dependency-patcher
 ```
 
 (Plugin skills are always namespaced as `/plugin-name:skill-name` to avoid
-collisions with other installed plugins — this is the closest Claude Code
-gets to a flat `/security-bundler` command.)
+collisions with other installed plugins — the plugin itself is named
+`security-bundler`; `dependency-patcher` is the skill within it that does
+the actual fetch/classify/PR work.)
 
 The skill will fetch alerts, classify them, run your test suite against
 each proposed upgrade, open PRs, and produce a triage report — see
-`skills/security-bundler/SKILL.md` for the exact step-by-step workflow, and
-`skills/security-bundler/templates/` for the PR/report templates it fills in.
+`skills/dependency-patcher/SKILL.md` for the exact step-by-step workflow, and
+`skills/dependency-patcher/templates/` for the PR/report templates it fills in.
 
 ## What it will never do on its own
 
