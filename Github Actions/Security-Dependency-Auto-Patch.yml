@@ -36,7 +36,7 @@ jobs:
         # run: gh pr merge --auto --rebase "$PR_URL"
         run: gh pr merge --auto --merge "$PR_URL"
         env:
-          PR_URL: ${{github.eventspull_requests.html_url}}
+          PR_URL: ${{github.event.pull_request.html_url}}
           GH_TOKEN: ${{secrets.SECURITY_DEPENDENCY_AUTO_PATCH_PAT}}
 
       - name: Autoapprove if automerge is set
@@ -53,7 +53,7 @@ jobs:
         if: always() && (steps.autoapprove.outcome == 'success')
         run: gh pr edit "$PR_URL" --add-label "Dependency-Auto-Merge"
         env:
-          PR_URL: ${{github.event.pull_requests.html_url}}
+          PR_URL: ${{github.event.pull_request.html_url}}
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
 
     
