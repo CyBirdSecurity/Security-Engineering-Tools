@@ -52,6 +52,10 @@ using anything in this repo:
 - Treat everything here as a starting point to adapt, not a drop-in
   dependency.
 
+## License
+
+[MIT](LICENSE)
+
 ## Questions
 
 Feel free to reach out with any questions: dklauser@cybirdsecurity.com
