@@ -1,0 +1,256 @@
+# GitHub Org Backup to S3
+#
+# Weekly, immutable backups of every repository in a GitHub organization:
+#   * git data as verified `git bundle`s (all branches, tags and refs/pull/*)
+#   * Git LFS objects and wikis
+#   * issues, pull requests (comments, reviews, review threads), labels,
+#     milestones, releases and release assets
+#   * repo-level configuration (settings, rulesets, branch protection, teams,
+#     webhooks, Actions settings, custom properties, secret *names*)
+# Org-level settings (teams, members, org policies) are intentionally out of
+# scope: this is for recovering repositories, not rebuilding the org.
+#
+# Archived repos that were archived more than ARCHIVED_GRACE_DAYS ago (default
+# 14) are skipped, after a permanent "final copy" has been stored once.
+#
+# Install: copy this file to .github/workflows/github-org-backup.yml and the
+# scripts/ folder to .github/org-backup/scripts/ in a dedicated private repo,
+# then follow GitHub-Org-Backup-S3.md. Nothing in this file needs editing —
+# all org-specific values come from repository variables and the `backup`
+# environment.
+#
+# Required configuration (Settings → Secrets and variables → Actions):
+#   vars.BACKUP_S3_BUCKET       S3 bucket name
+#   vars.BACKUP_AWS_REGION      bucket region, e.g. us-east-1
+#   vars.BACKUP_AWS_ROLE_ARN    IAM role assumed via GitHub OIDC (Terraform output)
+#   vars.BACKUP_APP_ID          GitHub App ID (or Client ID)
+#   secrets.BACKUP_APP_PRIVATE_KEY  GitHub App private key (environment secret on `backup`)
+# Optional:
+#   vars.BACKUP_ORG             org to back up (default: owner of this repo)
+#   vars.BACKUP_S3_PREFIX       key prefix (default: github-backup)
+#   vars.ARCHIVED_GRACE_DAYS    default 14; -1 backs up archived repos every week
+#   vars.BACKUP_SHARD_COUNT     parallel shards (default 8)
+#   vars.BACKUP_MAX_PARALLEL    concurrent git shards (default 4)
+#   vars.BACKUP_METADATA_MAX_PARALLEL  concurrent metadata shards (default 2; API rate limits)
+#   vars.BACKUP_RUNNER          runner label for large repos (default ubuntu-latest)
+#   vars.BACKUP_RELEASE_ASSETS  "false" to skip release asset binaries
+#   vars.BACKUP_LFS             always | auto | never (default always; auto = faster heuristic)
+#
+# Third-party actions are pinned to full commit SHAs. When you upgrade one,
+# re-pin to the new release's SHA rather than a mutable tag.
+
+name: GitHub Org Backup to S3
+
+on:
+  schedule:
+    - cron: "17 3 * * 0" # Sundays 03:17 UTC
+  workflow_dispatch:
+    inputs:
+      repo_filter:
+        description: "Only back up repos whose name matches this regex (empty = all). Filtered runs never count as a full successful backup."
+        required: false
+        default: ""
+      archived_grace_days:
+        description: "Override ARCHIVED_GRACE_DAYS for this run (-1 = back up all archived repos). Empty = use the repo variable / 14."
+        required: false
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: github-org-backup
+  cancel-in-progress: false
+
+env:
+  BACKUP_ORG: ${{ vars.BACKUP_ORG || github.repository_owner }}
+  BACKUP_S3_BUCKET: ${{ vars.BACKUP_S3_BUCKET }}
+  BACKUP_S3_PREFIX: ${{ vars.BACKUP_S3_PREFIX || 'github-backup' }}
+  BACKUP_APP_ID: ${{ vars.BACKUP_APP_ID }}
+  SCRIPTS: .github/org-backup/scripts
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  discover:
+    name: Discover repositories
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: backup
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      snapshot_id: ${{ steps.plan.outputs.snapshot_id }}
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - name: Check configuration
+        env:
+          ROLE: ${{ vars.BACKUP_AWS_ROLE_ARN }}
+          REGION: ${{ vars.BACKUP_AWS_REGION }}
+          HAS_KEY: ${{ secrets.BACKUP_APP_PRIVATE_KEY != '' }}
+        run: |
+          missing=""
+          [ -n "$BACKUP_S3_BUCKET" ] || missing="$missing BACKUP_S3_BUCKET"
+          [ -n "$REGION" ]           || missing="$missing BACKUP_AWS_REGION"
+          [ -n "$ROLE" ]             || missing="$missing BACKUP_AWS_ROLE_ARN"
+          [ -n "$BACKUP_APP_ID" ]    || missing="$missing BACKUP_APP_ID"
+          [ "$HAS_KEY" = "true" ]    || missing="$missing BACKUP_APP_PRIVATE_KEY(secret)"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing configuration:$missing — see GitHub-Org-Backup-S3.md"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.BACKUP_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.BACKUP_AWS_REGION }}
+          role-session-name: org-backup-discover-${{ github.run_id }}
+
+      - name: Build backup plan
+        id: plan
+        env:
+          BACKUP_APP_PRIVATE_KEY: ${{ secrets.BACKUP_APP_PRIVATE_KEY }}
+          REPO_FILTER: ${{ inputs.repo_filter }}
+          ARCHIVED_GRACE_DAYS: ${{ inputs.archived_grace_days || vars.ARCHIVED_GRACE_DAYS || '14' }}
+          SHARD_COUNT: ${{ vars.BACKUP_SHARD_COUNT || '8' }}
+        run: python3 "$SCRIPTS/discover_repos.py" --out plan.json
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backup-plan
+          path: plan.json
+          retention-days: 7
+
+  backup-git:
+    name: Git data (shard ${{ matrix.shard }})
+    needs: discover
+    runs-on: ${{ vars.BACKUP_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 355
+    environment: backup
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(vars.BACKUP_MAX_PARALLEL || '4') }}
+      matrix:
+        shard: ${{ fromJSON(needs.discover.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.BACKUP_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.BACKUP_AWS_REGION }}
+          role-session-name: org-backup-git-${{ github.run_id }}-${{ matrix.shard }}
+          role-duration-seconds: 21600 # role's max_session_duration must allow 6h
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: backup-plan
+
+      - name: Back up git data
+        env:
+          BACKUP_APP_PRIVATE_KEY: ${{ secrets.BACKUP_APP_PRIVATE_KEY }}
+          BACKUP_LFS: ${{ vars.BACKUP_LFS || 'always' }}
+          SHARD: ${{ matrix.shard }}
+        run: python3 "$SCRIPTS/backup_git.py" --plan plan.json --shard "$SHARD" --out "results/git-$SHARD.json"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: results-git-${{ matrix.shard }}
+          path: results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  backup-metadata:
+    name: Metadata & repo config (shard ${{ matrix.shard }})
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    environment: backup
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(vars.BACKUP_METADATA_MAX_PARALLEL || '2') }}
+      matrix:
+        shard: ${{ fromJSON(needs.discover.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.BACKUP_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.BACKUP_AWS_REGION }}
+          role-session-name: org-backup-meta-${{ github.run_id }}-${{ matrix.shard }}
+          role-duration-seconds: 21600
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: backup-plan
+
+      - name: Export metadata and repo config
+        env:
+          BACKUP_APP_PRIVATE_KEY: ${{ secrets.BACKUP_APP_PRIVATE_KEY }}
+          BACKUP_RELEASE_ASSETS: ${{ vars.BACKUP_RELEASE_ASSETS || 'true' }}
+          SHARD: ${{ matrix.shard }}
+        run: python3 "$SCRIPTS/export_metadata.py" --plan plan.json --shard "$SHARD" --out "results/metadata-$SHARD.json"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: results-metadata-${{ matrix.shard }}
+          path: results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  finalize:
+    name: Write manifest & report
+    needs: [discover, backup-git, backup-metadata]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: backup
+    permissions:
+      contents: read
+      id-token: write
+      issues: write # open/close the backup-failure issue in this repo
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        continue-on-error: true # still report the failure as an issue if AWS auth is what broke
+        with:
+          role-to-assume: ${{ vars.BACKUP_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.BACKUP_AWS_REGION }}
+          role-session-name: org-backup-finalize-${{ github.run_id }}
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          name: backup-plan
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        continue-on-error: true
+        with:
+          pattern: results-*
+          path: results
+          merge-multiple: true
+
+      - name: Write manifest, update state, report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: python3 "$SCRIPTS/finalize.py" --plan plan.json --results results

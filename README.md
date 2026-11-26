@@ -29,6 +29,19 @@ sure that tradeoff is right for your repo before enabling it. Third-party
 actions are pinned to a commit SHA to reduce supply-chain risk; if you bump
 a version, re-pin to the new SHA rather than a mutable tag.
 
+### `Github Actions/GitHub-Org-Backup-S3/`
+A GitHub Actions workflow that takes weekly, immutable backups of every
+repository in an organization into S3. It covers full git history including
+`refs/pull/*`, LFS objects, wikis, issues, PRs and reviews, releases, and
+repo-level configuration, so a deleted repository can be recovered even if
+GitHub can't restore it. Auth uses a read-only GitHub App and
+GitHub OIDC into a write-only IAM role, and the bucket uses Object Lock with
+SSE-KMS. Repos archived for more than 14 days are skipped once a permanent
+final copy is stored. Failures open a GitHub issue, and a monthly restore
+drill proves the backups restore. It includes a Terraform example and manual
+AWS steps. Start with
+[`GitHub-Org-Backup-S3.md`](Github%20Actions/GitHub-Org-Backup-S3/GitHub-Org-Backup-S3.md).
+
 ### `Github Secure Configurations/PR_Review.md`
 A short guide for enforcing PR review requirements org-wide using GitHub
 repository rulesets, plus a pattern for tagging specific repos as exceptions

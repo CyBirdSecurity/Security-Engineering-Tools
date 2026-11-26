@@ -1,0 +1,67 @@
+# GitHub Org Backup to S3 — monthly restore drill
+#
+# Proves backups are restorable, not just present: downloads a few repos from
+# the latest complete snapshot with the READ-ONLY restore role, checks every
+# file's SHA-256 against the manifest, clones each bundle and confirms the
+# restored refs match what was backed up. Opens a `restore-drill-failure`
+# issue on failure. Nothing is pushed anywhere.
+#
+# Install next to the backup workflow as .github/workflows/github-org-backup-restore-drill.yml.
+# Needs vars.BACKUP_AWS_RESTORE_ROLE_ARN and an environment named `restore`
+# (the restore role trusts only that environment).
+
+name: GitHub Org Backup — Restore Drill
+
+on:
+  schedule:
+    - cron: "41 5 3 * *" # 3rd of each month, 05:41 UTC
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Drill this repository name (empty = random sample)"
+        required: false
+        default: ""
+      count:
+        description: "How many random repositories to drill"
+        required: false
+        default: "3"
+
+permissions: {}
+
+concurrency:
+  group: github-org-backup-restore-drill
+  cancel-in-progress: false
+
+jobs:
+  drill:
+    name: Restore drill
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: restore
+    permissions:
+      contents: read
+      id-token: write
+      issues: write
+    env:
+      BACKUP_ORG: ${{ vars.BACKUP_ORG || github.repository_owner }}
+      BACKUP_S3_BUCKET: ${{ vars.BACKUP_S3_BUCKET }}
+      BACKUP_S3_PREFIX: ${{ vars.BACKUP_S3_PREFIX || 'github-backup' }}
+      SCRIPTS: .github/org-backup/scripts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.BACKUP_AWS_RESTORE_ROLE_ARN }}
+          aws-region: ${{ vars.BACKUP_AWS_REGION }}
+          role-session-name: org-backup-drill-${{ github.run_id }}
+
+      - name: Run restore drill
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DRILL_REPO: ${{ inputs.repo }}
+          DRILL_COUNT: ${{ inputs.count || '3' }}
+          DRILL_MAX_AGE_DAYS: ${{ vars.DRILL_MAX_AGE_DAYS || '15' }}
+        run: python3 "$SCRIPTS/restore_drill.py"
