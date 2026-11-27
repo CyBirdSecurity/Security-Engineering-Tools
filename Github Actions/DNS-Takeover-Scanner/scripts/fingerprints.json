@@ -1,0 +1,41 @@
+{
+  "_comment": "Takeover fingerprints. `cname` = regexes matched against any name in the CNAME chain. `nxdomain` = true when a CNAME to this service whose target no longer exists can be claimed by registering the same resource name. `http` = response-body strings shown when the resource is unclaimed. `status`: vulnerable = known claimable; edge = claimable only in some configurations, verify manually. Services change their behaviour over time; review against the community list at https://github.com/EdOverflow/can-i-take-over-xyz when updating.",
+  "services": [
+    {"name": "AWS S3", "cname": ["\\.s3[.-]([a-z0-9-]+\\.)?amazonaws\\.com$", "\\.s3-website[.-][a-z0-9-]+\\.amazonaws\\.com$", "^s3[.-]([a-z0-9-]+\\.)?amazonaws\\.com$"], "nxdomain": false, "http": ["NoSuchBucket", "The specified bucket does not exist"], "status": "vulnerable"},
+    {"name": "AWS Elastic Beanstalk", "cname": ["\\.elasticbeanstalk\\.com$"], "nxdomain": true, "http": [], "status": "vulnerable"},
+    {"name": "Azure App Service", "cname": ["\\.azurewebsites\\.net$"], "nxdomain": true, "http": [], "status": "vulnerable"},
+    {"name": "Azure Cloud Services", "cname": ["\\.cloudapp\\.net$", "\\.cloudapp\\.azure\\.com$"], "nxdomain": true, "http": [], "status": "vulnerable"},
+    {"name": "Azure Traffic Manager", "cname": ["\\.trafficmanager\\.net$"], "nxdomain": true, "http": [], "status": "vulnerable"},
+    {"name": "Azure Blob Storage", "cname": ["\\.blob\\.core\\.windows\\.net$"], "nxdomain": true, "http": [], "status": "vulnerable"},
+    {"name": "Azure CDN", "cname": ["\\.azureedge\\.net$"], "nxdomain": true, "http": [], "status": "vulnerable"},
+    {"name": "Azure API Management", "cname": ["\\.azure-api\\.net$"], "nxdomain": true, "http": [], "status": "vulnerable"},
+    {"name": "Azure Container Instances", "cname": ["\\.azurecontainer\\.io$"], "nxdomain": true, "http": [], "status": "vulnerable"},
+    {"name": "Azure Front Door", "cname": ["\\.azurefd\\.net$"], "nxdomain": true, "http": [], "status": "vulnerable"},
+    {"name": "GitHub Pages", "cname": ["\\.github\\.io$"], "nxdomain": false, "http": ["There isn't a GitHub Pages site here."], "status": "vulnerable"},
+    {"name": "Heroku", "cname": ["\\.herokuapp\\.com$", "\\.herokudns\\.com$"], "nxdomain": false, "http": ["No such app", "herokucdn.com/error-pages/no-such-app.html"], "status": "edge"},
+    {"name": "Fastly", "cname": ["\\.fastly\\.net$"], "nxdomain": false, "http": ["Fastly error: unknown domain"], "status": "edge"},
+    {"name": "Shopify", "cname": ["\\.myshopify\\.com$"], "nxdomain": false, "http": ["Sorry, this shop is currently unavailable"], "status": "edge"},
+    {"name": "Netlify", "cname": ["\\.netlify\\.app$", "\\.netlify\\.com$"], "nxdomain": false, "http": ["Not Found - Request ID:"], "status": "edge"},
+    {"name": "Pantheon", "cname": ["\\.pantheonsite\\.io$"], "nxdomain": false, "http": ["The gods are wise, but do not know of the site which you seek."], "status": "vulnerable"},
+    {"name": "Tumblr", "cname": ["^domains\\.tumblr\\.com$"], "nxdomain": false, "http": ["Whatever you were looking for doesn't currently exist at this address"], "status": "vulnerable"},
+    {"name": "Ghost", "cname": ["\\.ghost\\.io$"], "nxdomain": false, "http": ["The thing you were looking for is no longer here, or never was"], "status": "vulnerable"},
+    {"name": "Surge.sh", "cname": ["\\.surge\\.sh$"], "nxdomain": false, "http": ["project not found"], "status": "vulnerable"},
+    {"name": "Bitbucket", "cname": ["\\.bitbucket\\.io$"], "nxdomain": false, "http": ["Repository not found"], "status": "vulnerable"},
+    {"name": "WordPress.com", "cname": ["\\.wordpress\\.com$"], "nxdomain": false, "http": ["Do you want to register"], "status": "vulnerable"},
+    {"name": "Help Scout Docs", "cname": ["\\.helpscoutdocs\\.com$"], "nxdomain": false, "http": ["No settings were found for this company:"], "status": "vulnerable"},
+    {"name": "Readme.io", "cname": ["\\.readme\\.io$"], "nxdomain": false, "http": ["Project doesnt exist... yet!"], "status": "vulnerable"},
+    {"name": "Zendesk", "cname": ["\\.zendesk\\.com$"], "nxdomain": false, "http": ["Help Center Closed"], "status": "edge"},
+    {"name": "Unbounce", "cname": ["\\.unbouncepages\\.com$"], "nxdomain": false, "http": ["The requested URL was not found on this server."], "status": "edge"}
+  ],
+  "dns_providers": [
+    {"name": "AWS Route 53", "ns": ["\\.awsdns-[0-9]+\\.(com|net|org|co\\.uk)$"]},
+    {"name": "Azure DNS", "ns": ["\\.azure-dns\\.(com|net|org|info)$"]},
+    {"name": "Google Cloud DNS", "ns": ["^ns-cloud-[a-z][0-9]+\\.googledomains\\.com$"]},
+    {"name": "DigitalOcean", "ns": ["^ns[1-3]\\.digitalocean\\.com$"]},
+    {"name": "Linode", "ns": ["^ns[1-5]\\.linode\\.com$"]},
+    {"name": "Vultr", "ns": ["^ns[12]\\.vultr\\.com$"]},
+    {"name": "Hetzner", "ns": ["\\.(ns\\.hetzner\\.(com|de)|first-ns\\.de|second-ns\\.(com|de))$"]},
+    {"name": "NS1", "ns": ["^dns[1-4]\\.p[0-9]+\\.nsone\\.net$"]},
+    {"name": "Gandi LiveDNS", "ns": ["^ns-[0-9]+-[abc]\\.gandi\\.net$"]}
+  ]
+}

@@ -42,6 +42,20 @@ drill proves the backups restore. It includes a Terraform example and manual
 AWS steps. Start with
 [`GitHub-Org-Backup-S3.md`](Github%20Actions/GitHub-Org-Backup-S3/GitHub-Org-Backup-S3.md).
 
+### `Github Actions/DNS-Takeover-Scanner/`
+A daily GitHub Actions workflow that finds subdomain and DNS takeover risks
+on domains you own. It discovers hostnames from Certificate Transparency
+logs, then checks for:
+- CNAMEs pointing at deleted cloud or SaaS resources, or at unregistered
+  domains;
+- NS delegations that are broken or that someone else could claim;
+- MX and SPF records that reference unregistered domains.
+
+Each finding opens its own GitHub issue, which closes automatically once the
+record is fixed. No cloud or DNS-provider credentials are needed. Run it from
+a private repo and start with
+[`DNS-Takeover-Scanner.md`](Github%20Actions/DNS-Takeover-Scanner/DNS-Takeover-Scanner.md).
+
 ### `Github Secure Configurations/PR_Review.md`
 A short guide for enforcing PR review requirements org-wide using GitHub
 repository rulesets, plus a pattern for tagging specific repos as exceptions

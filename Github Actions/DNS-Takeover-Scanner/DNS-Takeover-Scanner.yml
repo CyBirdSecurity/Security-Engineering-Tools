@@ -1,0 +1,72 @@
+# DNS Takeover Scanner
+#
+# Daily scan for subdomain / DNS takeover risks on domains you own:
+#   * finds hostnames from Certificate Transparency logs (crt.sh, Cert Spotter),
+#     including old ones from expired certificates
+#   * dangling CNAMEs to deleted cloud/SaaS resources or unregistered domains
+#   * dangling NS delegations (lame, or to unregistered / unclaimed DNS zones)
+#   * MX hosts and SPF include/redirect targets on unregistered or missing domains
+# Each finding gets its own GitHub issue, which updates while the problem
+# persists and closes itself once the record is fixed. Close an issue as
+# "not planned" to accept a finding permanently.
+#
+# Install: copy this file to .github/workflows/dns-takeover-scanner.yml and
+# scripts/ to .github/dns-takeover/scripts/ in a PRIVATE repository, then set:
+#   vars.DNS_ROOT_DOMAINS     domains you own, e.g. "example.com example.org"  (required)
+#   vars.DNS_RESOLVERS        optional, default "1.1.1.1,8.8.8.8"
+#   vars.DNS_FAIL_ON          optional: high (default) | medium | none
+#   secrets.CERTSPOTTER_API_KEY  optional, raises Cert Spotter's quota
+# Only scan domains you are authorized to test. See DNS-Takeover-Scanner.md.
+#
+# Third-party actions are pinned to full commit SHAs. Re-pin when upgrading.
+
+name: DNS Takeover Scanner
+
+on:
+  schedule:
+    - cron: "43 5 * * *" # daily 05:43 UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report in the run summary only; don't open, update or close issues"
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: dns-takeover-scanner
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    name: Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      issues: write # one issue per finding in this (private) repo
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan DNS
+        env:
+          DNS_ROOT_DOMAINS: ${{ vars.DNS_ROOT_DOMAINS }}
+          DNS_RESOLVERS: ${{ vars.DNS_RESOLVERS }}
+          FAIL_ON: ${{ vars.DNS_FAIL_ON || 'high' }}
+          DNS_MAX_WORKERS: ${{ vars.DNS_MAX_WORKERS || '16' }}
+          CERTSPOTTER_API_KEY: ${{ secrets.CERTSPOTTER_API_KEY }}
+          DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PYTHONUNBUFFERED: "1"
+        run: python3 .github/dns-takeover/scripts/scan.py
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: dns-takeover-findings
+          path: findings.json
+          if-no-files-found: ignore
+          retention-days: 30
