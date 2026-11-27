@@ -1,0 +1,19 @@
+# Copy to terraform.tfvars and fill in. Only the first block is required.
+
+aws_region   = "us-east-1"
+bucket_name  = "example-org-github-backup"   # globally unique
+github_owner = "example-org"                 # owner of the repo that RUNS the workflow (case-sensitive)
+backup_repo  = "org-backup"                  # repo that runs the workflow
+
+# backed_up_org        = "example-org"        # defaults to github_owner
+# s3_prefix            = "github-backup"      # must match vars.BACKUP_S3_PREFIX
+# object_lock_mode     = "GOVERNANCE"         # or "COMPLIANCE" (irreversible per object)
+# object_lock_days     = 90
+# create_oidc_provider = false                # if the account already has the GitHub OIDC provider
+
+# Principals allowed to bypass GOVERNANCE retention in an emergency.
+# break_glass_principal_arns = ["arn:aws:iam::111111111111:role/backup-break-glass"]
+
+# Email alert when no successful full backup for 8 days (workflow stopped running).
+# enable_freshness_alarm = true
+# alarm_email            = "security-team@example.com"
